@@ -7,8 +7,8 @@
 		Right now there is no APC support, but in time that should be added since this is a typical case where APC can
 		come in very handy!
 		
-		Version:		0.3
-		Author:			markg85
+		Version:		0.4
+		Author:			markg85 <markg85@gmail.com>
 		License:		It's all yours! (under BSD)
 		Requirements:	PHP 5.3+
 		
@@ -40,6 +40,8 @@
 		$oExample->get("/articles/:other/:comment/", function($articles, $other, $comment){});
 		
 		Changelog
+		0.4 - Add ability to use $oExample->get("/", function($everything){}); as index. So not providing anything in your url will take the / route.
+			- Return false instead of just return. Looks better.
 		0.3 - Fixed matching so that /:one/:two/ actually only matches those two and not everything after :one.
 			- Redone the mapRoute function to allow for much more flexibility.
 			- Doing /:something/ will match everything between the / and /. Anything else will be an exact case sensitive match.
@@ -57,6 +59,7 @@
 		Possible optimizations
 		- Use caching for URL Routing storage.
 		- Create the $aMatches at class construction time rather then in the mapRoute function
+		- Split the mapRoute in 2 stages. Stage 1 matches exact paths. If a dynamic path is detected enter stage 2.
 	*/
 	class Lite_Rest_Router
 	{
@@ -71,7 +74,7 @@
 			$sScriptName 	= (isset($_SERVER['PATH_INFO'])) ? $_SERVER['SCRIPT_NAME'] : dirname($_SERVER['SCRIPT_NAME']);
 			
 			// Now remove the subfolder to get a clean URL from the current folder also remove and leading slashes.
-			$this->sPathInfo = urldecode(ltrim(substr($sFullUri, strlen($sScriptName)), '/'));
+			$this->sPathInfo = urldecode(substr($sFullUri, strlen($sScriptName)));
 			
 			// Clean the path of double slashes
 			$this->sPathInfo = $this->stripDoubleSlashes($this->sPathInfo);
@@ -102,9 +105,9 @@
 			}
 			
 			// A path can't exist in just 1 or less character(s) so exit if it does.
-			if(strlen($this->sPathInfo) <= 1)
+			if(strlen($this->sPathInfo) <= 1 && $this->sPathInfo != "/")
 			{
-				return;
+				return false;
 			}
 			
 			// If there is no route known we make and store it.
@@ -124,18 +127,22 @@
 				
 				$lastPattern = end($aPattern);
 				
-				if(count($aPattern) < count($aMatches))
+				if(count($aPattern) > 0 && empty($aMatches))
+				{
+					return false;
+				}
+				elseif(count($aPattern) < count($aMatches))
 				{
 					// We are now in a condition where we could possible return the function because there are to little patterns for the given url to ever match
 					// However.. The last pattern "could" be one that matches "the rest of the URL" this the function should continue
 					
 					if(substr($sPattern, -1) != "/" && $lastPattern[0] != ":")
 					{
-						return;
+						return false;
 					}
 					elseif(substr($sPattern, -1) == "/")
 					{
-						return;
+						return false;
 					}
 				}
 				
@@ -158,12 +165,12 @@
 						
 						if(empty($aMatches[$iKey]))
 						{
-							return;
+							return false;
 						}
 					}
-					elseif($sSinglePattern != $aMatches[$iKey])
+					elseif(!empty($aMatches) && $sSinglePattern != $aMatches[$iKey])
 					{
-						return;
+						return false;
 					}
 				}
 				
@@ -197,10 +204,19 @@
 		}
 	}
 	
+	//var_dump($_SERVER);
+	//var_dump(dirname($_SERVER['REQUEST_URI']));
+	
 	$oExample = new Lite_Rest_Router();
 	
-	$oExample->get("/:one/:two", function($one, $two)
+	$oExample->get("/", function()
+	{
+		echo "index";
+	});
+	
+	$oExample->get("/article/:two", function($one, $two)
 	{
 		echo $one . ' --- ' . $two . "<br />";
 	});
+	
 	
