@@ -7,7 +7,7 @@
 		Right now there is no APC support, but in time that should be added since this is a typical case where APC can
 		come in very handy!
 		
-		Version:		0.4
+		Version:		0.5
 		Author:			markg85 <markg85@gmail.com>
 		License:		It's all yours! (under BSD)
 		Requirements:	PHP 5.3+
@@ -40,6 +40,7 @@
 		$oExample->get("/articles/:other/:comment/", function($articles, $other, $comment){});
 		
 		Changelog
+		0.5 - Fixed a bug where $oExample->get("/article/:two", function($one, $two){}); would match /article as well.
 		0.4 - Add ability to use $oExample->get("/", function($everything){}); as index. So not providing anything in your url will take the / route.
 			- Return false instead of just return. Looks better.
 		0.3 - Fixed matching so that /:one/:two/ actually only matches those two and not everything after :one.
@@ -60,6 +61,8 @@
 		- Use caching for URL Routing storage.
 		- Create the $aMatches at class construction time rather then in the mapRoute function
 		- Split the mapRoute in 2 stages. Stage 1 matches exact paths. If a dynamic path is detected enter stage 2.
+		- Perhaps using callbacks when a certain route is matched works better. The current lambda version works just fine,
+		  but is going through all cases always. Doesn't matter much for a few but probably becomes slow when you have a few hundred possible matches.
 	*/
 	class Lite_Rest_Router
 	{
@@ -149,9 +152,9 @@
 				foreach($aPattern as $iKey => $sSinglePattern)
 				{
 					// Starting with ":" means anything will match.
-					if($sSinglePattern[0] == ":")
+					if(isset($aMatches[$iKey]))
 					{
-						if(substr($sPattern, -1) != "/" && $sSinglePattern == end($aPattern))
+						if($sSinglePattern[0] == ":" && substr($sPattern, -1) != "/" && $sSinglePattern == end($aPattern))
 						{
 							// Put all remaining matches in one long string and abort the loop
 							$aTempMatches = $aMatches;
@@ -168,7 +171,11 @@
 							return false;
 						}
 					}
-					elseif(!empty($aMatches) && $sSinglePattern != $aMatches[$iKey])
+					elseif(isset($aMatches[$iKey]) && $sSinglePattern != $aMatches[$iKey])
+					{
+						return false;
+					}
+					else
 					{
 						return false;
 					}
@@ -204,9 +211,6 @@
 		}
 	}
 	
-	//var_dump($_SERVER);
-	//var_dump(dirname($_SERVER['REQUEST_URI']));
-	
 	$oExample = new Lite_Rest_Router();
 	
 	$oExample->get("/", function()
@@ -216,7 +220,7 @@
 	
 	$oExample->get("/article/:two", function($one, $two)
 	{
-		echo $one . ' --- ' . $two . "<br />";
+		echo $one . " --- " . $two . "<br />";
 	});
 	
 	
